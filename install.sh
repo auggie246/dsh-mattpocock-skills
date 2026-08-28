@@ -19,6 +19,12 @@ set -euo pipefail
 # ~/.dsh/skills is never touched. If a name we want to install already exists
 # and is NOT ours, we skip it and warn.
 #
+# DSH overlay patches: after clone/pull, the script re-applies every patch
+# under ./patches/ onto the checkout (currently: the ask-user overlay that
+# routes "ask the user" moments through DSH's ask_user_question tool). A git
+# pull would otherwise wipe them, so the checkout is reset to pristine before
+# pulling and the patches are re-applied after. See the README.
+#
 # Usage:
 #   ./install.sh                          pull upstream, install default categories
 #   ./install.sh --categories "engineering productivity misc"
@@ -49,7 +55,7 @@ while [ $# -gt 0 ]; do
     --copy)       MODE="copy"; shift ;;
     --no-pull)    DO_PULL=0; shift ;;
     --uninstall)  DO_UNINSTALL=1; shift ;;
-    -h|--help)    sed -n '2,33p' "$0"; exit 0 ;;
+    -h|--help)    sed -n '2,34p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -64,7 +70,32 @@ if [ ! -d "$UPSTREAM_DIR/.git" ]; then
   git clone --depth 1 "$UPSTREAM_URL" "$UPSTREAM_DIR"
 elif [ "$DO_PULL" -eq 1 ] && [ "$DO_UNINSTALL" -eq 0 ]; then
   echo "updating upstream checkout..."
+  # drop the overlay patches first so the pull can never conflict with them;
+  # they are re-applied below
+  git -C "$UPSTREAM_DIR" reset --hard --quiet
   git -C "$UPSTREAM_DIR" pull --ff-only
+fi
+
+# --- (re-)apply the DSH overlay patches ----------------------------------------
+# Every patch under patches/ (flat or in an overlay subdirectory) is a plain
+# git diff against pristine upstream, applied after clone/pull so the
+# installed skills carry the overlay. Per-skill patch files keep the blast
+# radius of an upstream change to that one skill: idempotent (already-applied
+# is detected), and a stale patch is skipped with a warning, never a broken
+# install.
+if [ "$DO_UNINSTALL" -eq 0 ]; then
+  shopt -s nullglob
+  for patch in "$REPO_ROOT"/patches/*.patch "$REPO_ROOT"/patches/*/*.patch; do
+    pname="$(basename "$patch")"
+    if git -C "$UPSTREAM_DIR" apply --check "$patch" 2>/dev/null; then
+      git -C "$UPSTREAM_DIR" apply "$patch"
+      echo "applied overlay patch: $pname"
+    elif git -C "$UPSTREAM_DIR" apply --check --reverse "$patch" 2>/dev/null; then
+      echo "overlay patch already applied: $pname"
+    else
+      echo "warning: overlay patch $pname no longer applies to upstream; skills stay unpatched" >&2
+    fi
+  done
 fi
 
 mkdir -p "$DEST"

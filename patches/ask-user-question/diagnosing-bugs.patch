@@ -1,0 +1,18 @@
+diff --git a/skills/engineering/diagnosing-bugs/SKILL.md b/skills/engineering/diagnosing-bugs/SKILL.md
+index 061c25a..520ab40 100644
+--- a/skills/engineering/diagnosing-bugs/SKILL.md
++++ b/skills/engineering/diagnosing-bugs/SKILL.md
+@@ -136,3 +136,13 @@ Required before declaring done:
+ - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
+ - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
+ - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
++
++---
++
++## DSH note: asking the user
++
++This skill runs in DeepSeek Harness (DSH). Whenever it says to ask the user, for a confirmation, a choice, or missing information, ask with the **`ask_user_question` tool**, not in chat prose. Put the questions that can go together into one call. Each question needs a stable `id` and a `question`, plus a short `header`. Attach `options` when a choice exists: the recommended choice first, `(Recommended)` appended to its label. Set `multi_select: true` only when several options can be true at once. No `options` means the user answers free-form.
++
++If the skill writes its questions in the `❓ **Q1**` / `➡️ recommended answer` format, map that format onto the tool: the title and body go in `question`, the recommended answer becomes the first option labeled `(Recommended)`, and a question with no natural choices stays option-free.
++
++A delegated subagent cannot call `ask_user_question`. The call is rejected with `DELEGATED_CALLER`. If this skill runs inside a subagent, return the questions in the subagent's final result, and let the parent session ask them.

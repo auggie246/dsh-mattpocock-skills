@@ -54,6 +54,38 @@ Because entries are symlinks, a plain `git -C upstream-skills pull` also
 updates skill bodies; DSH's watcher picks up frontmatter changes live. Run
 `./install.sh` when you want membership changes (new/removed skills) synced.
 
+## The ask-user overlay (`patches/`)
+
+Upstream skills were written for Claude Code and say "ask the user" in chat
+prose. DSH ships a default plugin (`@deepseek-ai/dsh-tool-ask-user`) whose
+model-facing tool, `ask_user_question`, is the proper channel for those
+moments. This repo carries a DSH-local overlay that says so inside every
+skill that can ask:
+
+- `patches/ask-user-question/<skill>.patch` holds one patch per skill. Each
+  appends a **DSH note: asking the user** section to a `SKILL.md`: 15 skills
+  in all (10 engineering, 3 productivity, 2 misc) whose instructions contain
+  a genuine ask-the-user step. Grilling's `❓`/`➡️` round format included.
+  Rhetorical "ask"s (tdd's "Ask: what's the public interface?") are
+  deliberately untouched.
+- `install.sh` resets the checkout to pristine before `git pull`, then
+  re-applies every patch under `patches/` after it. So upstream releases land
+  first, and the overlay rides on top of the new version. Already-applied
+  patches are detected, which keeps re-runs idempotent. A stale patch is
+  skipped with a warning, never a broken install. One patch per skill caps
+  the blast radius of an upstream change at that one skill.
+
+When a release rewrites the tail of a patched file, that patch goes stale and
+that skill stays unpatched until you regenerate it: from a pristine checkout,
+append the overlay section to the file, then rewrite the patch with
+`git -C upstream-skills diff -- skills/<bucket>/<skill>/SKILL.md >
+patches/ask-user-question/<skill>.patch`. (This ran for real on 19 Aug: a
+110-file upstream release landed mid-session and every patch went stale at
+once; the overlay was re-based onto the new tree in minutes.) The overlay is
+a fork-local adaptation, not upstream content, so upstream's docs-page and
+router sync rules stay untriggered. Skills link by symlink, so the note is in
+front of DSH live the moment the patch is applied.
+
 ## The `mattpocock-skills` preset
 
 `~/.dsh/.agent-presets/mattpocock-skills/` is an **agent preset** (a bundle of

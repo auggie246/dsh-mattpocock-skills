@@ -1,0 +1,18 @@
+diff --git a/skills/engineering/improve-codebase-architecture/SKILL.md b/skills/engineering/improve-codebase-architecture/SKILL.md
+index a578dd0..95c0463 100644
+--- a/skills/engineering/improve-codebase-architecture/SKILL.md
++++ b/skills/engineering/improve-codebase-architecture/SKILL.md
+@@ -69,3 +69,13 @@ Side effects happen inline as decisions crystallize; call the Skill tool with "d
+ - **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
+ - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
+ - **Want to explore alternative interfaces for the deepened module?** Call the Skill tool with "codebase-design" and use its design-it-twice parallel sub-agent pattern.
++
++---
++
++## DSH note: asking the user
++
++This skill runs in DeepSeek Harness (DSH). Whenever it says to ask the user, for a confirmation, a choice, or missing information, ask with the **`ask_user_question` tool**, not in chat prose. Put the questions that can go together into one call. Each question needs a stable `id` and a `question`, plus a short `header`. Attach `options` when a choice exists: the recommended choice first, `(Recommended)` appended to its label. Set `multi_select: true` only when several options can be true at once. No `options` means the user answers free-form.
++
++If the skill writes its questions in the `❓ **Q1**` / `➡️ recommended answer` format, map that format onto the tool: the title and body go in `question`, the recommended answer becomes the first option labeled `(Recommended)`, and a question with no natural choices stays option-free.
++
++A delegated subagent cannot call `ask_user_question`. The call is rejected with `DELEGATED_CALLER`. If this skill runs inside a subagent, return the questions in the subagent's final result, and let the parent session ask them.

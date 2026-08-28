@@ -1,0 +1,18 @@
+diff --git a/skills/engineering/setup-matt-pocock-skills/SKILL.md b/skills/engineering/setup-matt-pocock-skills/SKILL.md
+index 7f6f576..ee33772 100644
+--- a/skills/engineering/setup-matt-pocock-skills/SKILL.md
++++ b/skills/engineering/setup-matt-pocock-skills/SKILL.md
+@@ -114,3 +114,13 @@ For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch us
+ ### 5. Done
+ 
+ Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
++
++---
++
++## DSH note: asking the user
++
++This skill runs in DeepSeek Harness (DSH). Whenever it says to ask the user, for a confirmation, a choice, or missing information, ask with the **`ask_user_question` tool**, not in chat prose. Put the questions that can go together into one call. Each question needs a stable `id` and a `question`, plus a short `header`. Attach `options` when a choice exists: the recommended choice first, `(Recommended)` appended to its label. Set `multi_select: true` only when several options can be true at once. No `options` means the user answers free-form.
++
++If the skill writes its questions in the `❓ **Q1**` / `➡️ recommended answer` format, map that format onto the tool: the title and body go in `question`, the recommended answer becomes the first option labeled `(Recommended)`, and a question with no natural choices stays option-free.
++
++A delegated subagent cannot call `ask_user_question`. The call is rejected with `DELEGATED_CALLER`. If this skill runs inside a subagent, return the questions in the subagent's final result, and let the parent session ask them.

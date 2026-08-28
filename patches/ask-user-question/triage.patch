@@ -1,0 +1,18 @@
+diff --git a/skills/engineering/triage/SKILL.md b/skills/engineering/triage/SKILL.md
+index 37ddea1..c30a19b 100644
+--- a/skills/engineering/triage/SKILL.md
++++ b/skills/engineering/triage/SKILL.md
+@@ -110,3 +110,13 @@ Capture everything resolved during grilling under "established so far" so the wo
+ ## Resuming a previous session
+ 
+ If prior triage notes exist on the issue or PR, read them, check whether the reporter has answered any outstanding questions, and present an updated picture before continuing. Don't re-ask resolved questions.
++
++---
++
++## DSH note: asking the user
++
++This skill runs in DeepSeek Harness (DSH). Whenever it says to ask the user, for a confirmation, a choice, or missing information, ask with the **`ask_user_question` tool**, not in chat prose. Put the questions that can go together into one call. Each question needs a stable `id` and a `question`, plus a short `header`. Attach `options` when a choice exists: the recommended choice first, `(Recommended)` appended to its label. Set `multi_select: true` only when several options can be true at once. No `options` means the user answers free-form.
++
++If the skill writes its questions in the `❓ **Q1**` / `➡️ recommended answer` format, map that format onto the tool: the title and body go in `question`, the recommended answer becomes the first option labeled `(Recommended)`, and a question with no natural choices stays option-free.
++
++A delegated subagent cannot call `ask_user_question`. The call is rejected with `DELEGATED_CALLER`. If this skill runs inside a subagent, return the questions in the subagent's final result, and let the parent session ask them.
