@@ -1,41 +1,47 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 # install.sh — install Matt Pocock's upstream skills into DeepSeek Harness.
+#
+# Designed to be run straight from the web, with no clone of this repo:
+#
+#   curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh
 #
 # What "install" means in DSH: skills are not plugins you activate; they are
 # files discovered by the `skill-filesystem` plugin row that presets mount.
 # That row scans a global per-user root, ${DSH_HOME:-~/.dsh}/skills, in EVERY
 # preset. Discovery is one level deep (<root>/<skill>/SKILL.md), so this
-# script flattens upstream's skills/<category>/<skill> layout by symlinking
-# each skill directory into that root.
+# script flattens upstream's skills/<category>/<skill> layout by COPYING each
+# skill directory into that root as a real directory (no symlinks).
 #
-# Because entries are symlinks into the git checkout in ./upstream-skills,
-# a `git pull` (done by this script) updates the skill bodies with no
-# re-install; DSH's file watcher refreshes its catalog live.
+# Nothing here is stored on your machine between runs. Every run:
+#   1. downloads the upstream skills tree (mattpocock/skills) as a tarball,
+#   2. downloads this repo's overlay patches as a tarball and applies them
+#      to the downloaded tree,
+#   3. copies the chosen skills into ~/.dsh/skills as real directories,
+#   4. rewrites the manifest.
 #
 # The script manages ONLY entries listed in its manifest
 # (~/.dsh/skills/.mattpocock-skills.manifest). Anything else you placed in
 # ~/.dsh/skills is never touched. If a name we want to install already exists
-# and is NOT ours, we skip it and warn.
+# and is NOT ours, we skip it and warn. Re-running installs the latest
+# upstream content over the previous install (snapshot semantics).
 #
-# DSH overlay patches: after clone/pull, the script re-applies every patch
-# under ./patches/ onto the checkout (currently: the ask-user overlay that
-# routes "ask the user" moments through DSH's ask_user_question tool). A git
-# pull would otherwise wipe them, so the checkout is reset to pristine before
-# pulling and the patches are re-applied after. See the README.
+# A stale patch is skipped with a warning, never a broken install. One patch
+# per skill caps the blast radius of an upstream change at that one skill.
 #
 # Usage:
-#   ./install.sh                          pull upstream, install default categories
-#   ./install.sh --categories "engineering productivity misc"
-#   ./install.sh --all                    every category except deprecated/ and in-progress/
-#   ./install.sh --no-pull                skip git pull, install from current checkout
-#   ./install.sh --copy                   copy instead of symlink (snapshot semantics)
-#   ./install.sh --uninstall              remove every manifest-managed entry
+#   curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh
+#   ... --categories "engineering productivity misc"
+#   ... --all                  every category except deprecated/ and in-progress/
+#   ... --uninstall            remove every manifest-managed entry
+#   ... --ref <ref>            pin the patch source to a branch/tag/sha
+#   ... --upstream-ref <ref>   pin the skills source to a branch/tag/sha
+#   ... --help
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-UPSTREAM_DIR="$REPO_ROOT/upstream-skills"
-UPSTREAM_URL="https://github.com/mattpocock/skills.git"
+REPO="auggie246/dsh-mattpocock-skills"
+UPSTREAM="mattpocock/skills"
+UPSTREAM_URL="https://github.com/$UPSTREAM"
 
 DSH_HOME_DIR="${DSH_HOME:-$HOME/.dsh}"
 DEST="$DSH_HOME_DIR/skills"
@@ -43,108 +49,150 @@ MANIFEST="$DEST/.mattpocock-skills.manifest"
 
 DEFAULT_CATEGORIES="engineering productivity"
 CATEGORIES=""
-MODE="link"   # link | copy
-DO_PULL=1
-DO_UNINSTALL=0
 ALL=0
+DO_UNINSTALL=0
+REF="HEAD"
+UPSTREAM_REF="HEAD"
+
+usage() {
+  cat <<'EOF'
+install.sh — install Matt Pocock's skills into DeepSeek Harness (~/.dsh/skills).
+
+Usage:
+  curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh
+  ... --categories "engineering productivity misc"
+  ... --all                  every category except deprecated/ and in-progress/
+  ... --uninstall            remove every manifest-managed entry
+  ... --ref <ref>            pin the patch source to a branch/tag/sha
+  ... --upstream-ref <ref>   pin the skills source to a branch/tag/sha
+  ... --help
+
+Skills are downloaded fresh on every run and copied in as real directories.
+Only entries listed in ~/.dsh/skills/.mattpocock-skills.manifest are managed;
+anything else in ~/.dsh/skills is never touched.
+EOF
+}
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --categories) CATEGORIES="$2"; shift 2 ;;
-    --all)        ALL=1; shift ;;
-    --copy)       MODE="copy"; shift ;;
-    --no-pull)    DO_PULL=0; shift ;;
-    --uninstall)  DO_UNINSTALL=1; shift ;;
-    -h|--help)    sed -n '2,34p' "$0"; exit 0 ;;
+    --categories)    CATEGORIES="$2"; shift 2 ;;
+    --all)           ALL=1; shift ;;
+    --uninstall)     DO_UNINSTALL=1; shift ;;
+    --ref)           REF="$2"; shift 2 ;;
+    --upstream-ref)  UPSTREAM_REF="$2"; shift 2 ;;
+    -h|--help)       usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
-# --- ensure the upstream checkout exists --------------------------------------
-if [ ! -d "$UPSTREAM_DIR/.git" ]; then
-  if [ "$DO_UNINSTALL" -eq 1 ]; then
-    echo "error: no upstream checkout at $UPSTREAM_DIR; nothing to uninstall categories from." >&2
+# --- uninstall (offline; needs no downloads) -----------------------------------
+if [ "$DO_UNINSTALL" -eq 1 ]; then
+  if [ ! -f "$MANIFEST" ]; then
+    echo "error: no manifest at $MANIFEST; nothing to uninstall." >&2
     exit 1
   fi
-  echo "cloning $UPSTREAM_URL -> $UPSTREAM_DIR"
-  git clone --depth 1 "$UPSTREAM_URL" "$UPSTREAM_DIR"
-elif [ "$DO_PULL" -eq 1 ] && [ "$DO_UNINSTALL" -eq 0 ]; then
-  echo "updating upstream checkout..."
-  # drop the overlay patches first so the pull can never conflict with them;
-  # they are re-applied below
-  git -C "$UPSTREAM_DIR" reset --hard --quiet
-  git -C "$UPSTREAM_DIR" pull --ff-only
-fi
-
-# --- (re-)apply the DSH overlay patches ----------------------------------------
-# Every patch under patches/ (flat or in an overlay subdirectory) is a plain
-# git diff against pristine upstream, applied after clone/pull so the
-# installed skills carry the overlay. Per-skill patch files keep the blast
-# radius of an upstream change to that one skill: idempotent (already-applied
-# is detected), and a stale patch is skipped with a warning, never a broken
-# install.
-if [ "$DO_UNINSTALL" -eq 0 ]; then
-  shopt -s nullglob
-  for patch in "$REPO_ROOT"/patches/*.patch "$REPO_ROOT"/patches/*/*.patch; do
-    pname="$(basename "$patch")"
-    if git -C "$UPSTREAM_DIR" apply --check "$patch" 2>/dev/null; then
-      git -C "$UPSTREAM_DIR" apply "$patch"
-      echo "applied overlay patch: $pname"
-    elif git -C "$UPSTREAM_DIR" apply --check --reverse "$patch" 2>/dev/null; then
-      echo "overlay patch already applied: $pname"
-    else
-      echo "warning: overlay patch $pname no longer applies to upstream; skills stay unpatched" >&2
-    fi
-  done
-fi
-
-mkdir -p "$DEST"
-
-# --- read the previous manifest (entries we own) ------------------------------
-owned=()
-if [ -f "$MANIFEST" ]; then
-  while IFS= read -r line; do
-    [ -n "$line" ] && owned+=("$line")
-  done < "$MANIFEST"
-fi
-
-is_owned() {
-  local name="$1" entry
-  for entry in ${owned[@]+"${owned[@]}"}; do
-    [ "$entry" = "$name" ] && return 0
-  done
-  return 1
-}
-
-# --- uninstall ----------------------------------------------------------------
-if [ "$DO_UNINSTALL" -eq 1 ]; then
   removed=0
-  for entry in ${owned[@]+"${owned[@]}"}; do
-    target="$DEST/$entry"
-    if [ -L "$target" ] || [ -d "$target" ]; then
-      rm -rf "$target"
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    if [ -L "$DEST/$entry" ] || [ -d "$DEST/$entry" ]; then
+      rm -rf "$DEST/$entry"
       echo "removed $entry"
       removed=$((removed + 1))
     fi
-  done
+  done < "$MANIFEST"
   rm -f "$MANIFEST"
   echo "uninstalled $removed skill(s) from $DEST"
   exit 0
 fi
 
-# --- collect skills from the chosen categories --------------------------------
-if [ "$ALL" -eq 1 ]; then
-  CATEGORIES="$(cd "$UPSTREAM_DIR/skills" && ls -d */ 2>/dev/null \
-    | sed 's|/$||' | grep -vx -e deprecated -e in-progress || true)"
+# --- download helpers -----------------------------------------------------------
+fetch() {
+  # fetch <url> <output-file>
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$1" -o "$2"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$2" "$1"
+  else
+    echo "error: need curl or wget to download $1" >&2
+    exit 1
+  fi
+}
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT INT TERM
+
+mkdir -p "$TMP/upstream" "$TMP/repo"
+touch "$TMP/old-manifest" "$TMP/names"
+
+echo "downloading skills from $UPSTREAM_URL (ref: $UPSTREAM_REF)..."
+fetch "https://codeload.github.com/$UPSTREAM/tar.gz/$UPSTREAM_REF" "$TMP/upstream.tar.gz"
+tar -xzf "$TMP/upstream.tar.gz" -C "$TMP/upstream"
+UPROOT="$(find "$TMP/upstream" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+if [ -z "$UPROOT" ] || [ ! -d "$UPROOT/skills" ]; then
+  echo "error: downloaded upstream tree has no skills/ directory" >&2
+  exit 1
 fi
-[ -z "$CATEGORIES" ] && CATEGORIES="$DEFAULT_CATEGORIES"
+
+echo "downloading overlay patches from github.com/$REPO (ref: $REF)..."
+fetch "https://codeload.github.com/$REPO/tar.gz/$REF" "$TMP/repo.tar.gz"
+tar -xzf "$TMP/repo.tar.gz" -C "$TMP/repo"
+REPOROOT="$(find "$TMP/repo" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+
+# --- apply the DSH overlay patches to the downloaded tree -----------------------
+if [ -d "$REPOROOT/patches" ]; then
+  if command -v git >/dev/null 2>&1; then
+    for patch in "$REPOROOT"/patches/*.patch "$REPOROOT"/patches/*/*.patch; do
+      [ -f "$patch" ] || continue
+      pname="$(basename "$patch")"
+      if (cd "$UPROOT" && git apply --check "$patch") 2>/dev/null; then
+        (cd "$UPROOT" && git apply "$patch")
+        echo "applied overlay patch: $pname"
+      elif (cd "$UPROOT" && git apply --check --reverse "$patch") 2>/dev/null; then
+        echo "overlay patch already applied: $pname"
+      else
+        echo "warning: overlay patch $pname no longer applies to upstream; that skill stays unpatched" >&2
+      fi
+    done
+  elif command -v patch >/dev/null 2>&1; then
+    for patch in "$REPOROOT"/patches/*.patch "$REPOROOT"/patches/*/*.patch; do
+      [ -f "$patch" ] || continue
+      pname="$(basename "$patch")"
+      if patch --forward --silent -p1 -d "$UPROOT" < "$patch" >/dev/null 2>&1; then
+        echo "applied overlay patch: $pname"
+      else
+        echo "warning: overlay patch $pname no longer applies to upstream; that skill stays unpatched" >&2
+      fi
+    done
+  else
+    echo "warning: neither git nor patch found; skills install unpatched" >&2
+  fi
+else
+  echo "warning: no patches/ directory in $REPO@$REF; skills install unpatched" >&2
+fi
+
+# --- read the previous manifest (entries we own) --------------------------------
+if [ -f "$MANIFEST" ]; then
+  cp "$MANIFEST" "$TMP/old-manifest"
+fi
+
+is_owned() {
+  grep -Fxq "$1" "$TMP/old-manifest"
+}
+
+mkdir -p "$DEST"
+
+# --- collect skills from the chosen categories ----------------------------------
+if [ "$ALL" -eq 1 ]; then
+  CATEGORIES="$(cd "$UPROOT/skills" && find . -mindepth 1 -maxdepth 1 -type d \
+    | sed 's|^\./||' | grep -vx -e deprecated -e in-progress || true)"
+fi
+[ -n "$CATEGORIES" ] || CATEGORIES="$DEFAULT_CATEGORIES"
 
 echo "categories: $CATEGORIES"
 
-names=()
-srcs=()
+: > "$TMP/pairs"
 for category in $CATEGORIES; do
-  dir="$UPSTREAM_DIR/skills/$category"
+  dir="$UPROOT/skills/$category"
   if [ ! -d "$dir" ]; then
     echo "warning: category '$category' not found upstream; skipping" >&2
     continue
@@ -154,42 +202,37 @@ for category in $CATEGORIES; do
     src="$(dirname "$skill_md")"
     name="$(basename "$src")"
     # warn on the same skill name coming from two categories
-    for existing in ${names[@]+"${names[@]}"}; do
-      if [ "$existing" = "$name" ]; then
-        echo "warning: duplicate skill name '$name' ($src); later category wins" >&2
-      fi
-    done
-    names+=("$name")
-    srcs+=("$src")
+    if grep -Fxq "$name" "$TMP/names"; then
+      echo "warning: duplicate skill name '$name' ($src); later category wins" >&2
+    else
+      echo "$name" >> "$TMP/names"
+    fi
+    printf '%s\t%s\n' "$name" "$src" >> "$TMP/pairs"
   done
 done
 
-if [ "${#names[@]}" -eq 0 ]; then
+if [ ! -s "$TMP/pairs" ]; then
   echo "error: no SKILL.md found under categories: $CATEGORIES" >&2
   exit 1
 fi
 
-# --- remove previously installed entries no longer present upstream ------------
-wanted_joined=" ${names[*]} "
-for entry in ${owned[@]+"${owned[@]}"}; do
-  case "$wanted_joined" in
-    *" $entry "*) ;;  # still wanted
-    *)
-      if [ -L "$DEST/$entry" ] || [ -d "$DEST/$entry" ]; then
-        rm -rf "$DEST/$entry"
-        echo "removed $entry (no longer upstream/selected)"
-      fi
-      ;;
-  esac
-done
+# --- remove previously installed entries no longer present upstream -------------
+awk -F'\t' '{ print $1 }' "$TMP/pairs" | sort -u > "$TMP/wanted"
+while IFS= read -r entry; do
+  [ -n "$entry" ] || continue
+  if ! grep -Fxq "$entry" "$TMP/wanted" \
+     && { [ -L "$DEST/$entry" ] || [ -d "$DEST/$entry" ]; }; then
+    rm -rf "$DEST/$entry"
+    echo "removed $entry (no longer upstream/selected)"
+  fi
+done < "$TMP/old-manifest"
 
-# --- install -------------------------------------------------------------------
-: > "$MANIFEST"
+# --- install (copy, never symlink) ----------------------------------------------
+: > "$MANIFEST.tmp"
 installed=0
 skipped=0
-for i in "${!names[@]}"; do
-  name="${names[$i]}"
-  src="${srcs[$i]}"
+while IFS="$(printf '\t')" read -r name src; do
+  [ -n "$name" ] || continue
   target="$DEST/$name"
 
   if [ -e "$target" ] && [ ! -L "$target" ] && ! is_owned "$name"; then
@@ -198,23 +241,18 @@ for i in "${!names[@]}"; do
     continue
   fi
 
-  if [ "$MODE" = "link" ]; then
-    # replace a stale copy of ours, or repoint an existing symlink
-    if [ -e "$target" ] && [ ! -L "$target" ]; then
-      rm -rf "$target"
-    fi
-    ln -sfn "$src" "$target"
-  else
-    rm -rf "$target"
-    cp -R "$src" "$target"
-  fi
+  # replace a previous install of ours (real dir or symlink) with a fresh copy
+  rm -rf "$target"
+  cp -R "$src" "$target"
 
-  echo "$name" >> "$MANIFEST"
-  echo "installed $name -> $target ($MODE)"
+  echo "$name" >> "$MANIFEST.tmp"
+  echo "installed $name -> $target"
   installed=$((installed + 1))
-done
+done < "$TMP/pairs"
+
+mv -f "$MANIFEST.tmp" "$MANIFEST"
 
 echo
 echo "done: $installed skill(s) installed into $DEST, $skipped skipped."
-echo "DSH picks them up in every preset (no restart of this script needed;"
+echo "DSH picks them up in every preset (no restart needed;"
 echo "the skill-filesystem watcher refreshes the catalog live)."

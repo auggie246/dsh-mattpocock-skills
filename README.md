@@ -28,31 +28,40 @@ per name.
 
 ## Usage
 
+No clone needed — run the installer straight from the web:
+
 ```bash
-./install.sh                # clone/pull upstream, link skills into ~/.dsh/skills
-./install.sh                # run again any time to update (does git pull)
-./install.sh --categories "engineering productivity misc"
-./install.sh --all          # everything except deprecated/ and in-progress/
-./install.sh --copy         # copy instead of symlink (snapshot semantics)
-./install.sh --no-pull      # install from the current checkout as-is
-./install.sh --uninstall    # remove every skill this script installed
-./install.sh --help
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh
 ```
 
-What it does:
+Flags go after `-s --` when piped:
 
-1. Clones (first run) or `git pull`s `mattpocock/skills` into `upstream-skills/`.
-2. Flattens the chosen `skills/<category>/<skill>` directories into
-   `~/.dsh/skills/<skill>` as **symlinks** into the checkout (DSH discovers one
-   level deep, so upstream's two-level layout can't be pointed at directly).
-3. Tracks what it installed in `~/.dsh/skills/.mattpocock-skills.manifest`:
-   - re-runs remove skills that were deleted upstream or deselected,
+```bash
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh -s -- --categories "engineering productivity misc"
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh -s -- --all          # everything except deprecated/ and in-progress/
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh -s -- --uninstall    # remove every skill this script installed
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh -s -- --upstream-ref <ref>   # pin the skills source
+curl -fsSL https://raw.githubusercontent.com/auggie246/dsh-mattpocock-skills/main/install.sh | sh -s -- --ref <ref>            # pin the patch source
+```
+
+What it does (every run, from scratch — nothing is stored between runs):
+
+1. Downloads the `mattpocock/skills` tree as a GitHub tarball.
+2. Downloads this repo's tarball and applies every patch under `patches/`
+   to the downloaded tree.
+3. Copies the chosen `skills/<category>/<skill>` directories into
+   `~/.dsh/skills/<skill>` as **real directories** (no symlinks; DSH
+   discovers one level deep, so upstream's two-level layout can't be
+   copied as-is).
+4. Tracks what it installed in `~/.dsh/skills/.mattpocock-skills.manifest`:
+   - re-runs install the latest upstream content over the previous install
+     (snapshot semantics), and remove skills that were deleted upstream or
+     deselected,
    - anything in `~/.dsh/skills` that is NOT in the manifest is never touched,
    - a name collision with a non-managed directory is skipped with a warning.
 
-Because entries are symlinks, a plain `git -C upstream-skills pull` also
-updates skill bodies; DSH's watcher picks up frontmatter changes live. Run
-`./install.sh` when you want membership changes (new/removed skills) synced.
+Run the installer again any time you want fresh skill bodies or membership
+changes (new/removed skills) synced.
 
 ## The ask-user overlay (`patches/`)
 
@@ -68,12 +77,12 @@ skill that can ask:
   a genuine ask-the-user step. Grilling's `❓`/`➡️` round format included.
   Rhetorical "ask"s (tdd's "Ask: what's the public interface?") are
   deliberately untouched.
-- `install.sh` resets the checkout to pristine before `git pull`, then
-  re-applies every patch under `patches/` after it. So upstream releases land
-  first, and the overlay rides on top of the new version. Already-applied
-  patches are detected, which keeps re-runs idempotent. A stale patch is
-  skipped with a warning, never a broken install. One patch per skill caps
-  the blast radius of an upstream change at that one skill.
+- `install.sh` downloads both trees (upstream skills and this repo's patches)
+   fresh on every run, applies every patch under `patches/` to the downloaded
+   tree, and only then installs. So upstream releases land first, and the
+   overlay rides on top of the new version. A stale patch is skipped with a
+   warning, never a broken install. One patch per skill caps the blast radius
+   of an upstream change at that one skill.
 
 When a release rewrites the tail of a patched file, that patch goes stale and
 that skill stays unpatched until you regenerate it: from a pristine checkout,
@@ -83,8 +92,8 @@ patches/ask-user-question/<skill>.patch`. (This ran for real on 19 Aug: a
 110-file upstream release landed mid-session and every patch went stale at
 once; the overlay was re-based onto the new tree in minutes.) The overlay is
 a fork-local adaptation, not upstream content, so upstream's docs-page and
-router sync rules stay untriggered. Skills link by symlink, so the note is in
-front of DSH live the moment the patch is applied.
+router sync rules stay untriggered. The patched note reaches DSH on the next
+install run, since every run downloads and patches a fresh tree.
 
 ## The `mattpocock-skills` preset
 
@@ -92,6 +101,6 @@ front of DSH live the moment the patch is applied.
 Cordis plugin rows), not a plugin. It used to carry *copies* of these skills
 wired through `customSkillDirs`; that was removed in favor of this global
 install, since preset-local copies (rank 300) would shadow the live global
-symlinks (rank 400) and go stale. The preset now just provides the persona and
+copies (rank 400) and go stale. The preset now just provides the persona and
 the standard tool/session composition; the skills themselves come from
 `~/.dsh/skills`, exactly as in every other preset.
