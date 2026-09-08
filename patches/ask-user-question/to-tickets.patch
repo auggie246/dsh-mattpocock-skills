@@ -1,11 +1,11 @@
-diff --git a/skills/engineering/to-tickets/SKILL.md b/skills/engineering/to-tickets/SKILL.md
-index e868c83..6d94823 100644
---- a/skills/engineering/to-tickets/SKILL.md
-+++ b/skills/engineering/to-tickets/SKILL.md
-@@ -103,3 +103,13 @@ The end-to-end behaviour this ticket makes work, from the user's perspective, no
+diff --git i/skills/engineering/to-tickets/SKILL.md w/skills/engineering/to-tickets/SKILL.md
+index 96deac5..533c10a 100644
+--- i/skills/engineering/to-tickets/SKILL.md
++++ w/skills/engineering/to-tickets/SKILL.md
+@@ -103,3 +103,13 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
  </issue-template>
  
- In either form, avoid specific file paths or code snippets: they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts, not a working demo, just the important bits.
+ In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
 +
 +---
 +

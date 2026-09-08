@@ -1,11 +1,11 @@
-diff --git a/skills/engineering/diagnosing-bugs/SKILL.md b/skills/engineering/diagnosing-bugs/SKILL.md
-index 061c25a..520ab40 100644
---- a/skills/engineering/diagnosing-bugs/SKILL.md
-+++ b/skills/engineering/diagnosing-bugs/SKILL.md
-@@ -136,3 +136,13 @@ Required before declaring done:
- - [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
- - [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
- - [ ] The hypothesis that turned out correct is stated in the commit / PR message, so the next debugger learns
+diff --git i/skills/engineering/diagnosing-bugs/SKILL.md w/skills/engineering/diagnosing-bugs/SKILL.md
+index 7f8acf7..6d4ee8e 100644
+--- i/skills/engineering/diagnosing-bugs/SKILL.md
++++ w/skills/engineering/diagnosing-bugs/SKILL.md
+@@ -138,3 +138,13 @@ Required before declaring done:
+ - [ ] The hypothesis that turned out correct is stated in the commit / PR message — so the next debugger learns
+ 
+ **Then ask: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling) hand off to the `/improve-codebase-architecture` skill with the specifics. Make the recommendation **after** the fix is in, not before — you have more information now than when you started.
 +
 +---
 +

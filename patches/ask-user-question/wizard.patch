@@ -1,10 +1,10 @@
-diff --git a/skills/engineering/wizard/SKILL.md b/skills/engineering/wizard/SKILL.md
-index c4294ad..660142a 100644
---- a/skills/engineering/wizard/SKILL.md
-+++ b/skills/engineering/wizard/SKILL.md
+diff --git i/skills/engineering/wizard/SKILL.md w/skills/engineering/wizard/SKILL.md
+index fdc2a72..7bcf6e8 100644
+--- i/skills/engineering/wizard/SKILL.md
++++ w/skills/engineering/wizard/SKILL.md
 @@ -42,3 +42,13 @@ Hold the bar the template sets: open the URL before asking for its value, use `a
  - `chmod +x <script>`.
- - Don't run it end-to-end yourself: it opens browsers and blocks on human input. Trace it statically instead: every value from step 1 is captured and lands where step 1 said, and every `set_secret` name exactly matches a `secrets.*` reference in CI.
+ - Don't run it end-to-end yourself — it opens browsers and blocks on human input. Trace it statically instead: every value from step 1 is captured and lands where step 1 said, and every `set_secret` name exactly matches a `secrets.*` reference in CI.
  - Tell the user how to run it. If it's a repeatable setup path, commit it and link it from the README so the next person runs the script instead of asking an AI.
 +
 +---

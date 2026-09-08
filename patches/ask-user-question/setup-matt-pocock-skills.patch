@@ -1,11 +1,11 @@
-diff --git a/skills/engineering/setup-matt-pocock-skills/SKILL.md b/skills/engineering/setup-matt-pocock-skills/SKILL.md
-index 7f6f576..ee33772 100644
---- a/skills/engineering/setup-matt-pocock-skills/SKILL.md
-+++ b/skills/engineering/setup-matt-pocock-skills/SKILL.md
+diff --git i/skills/engineering/setup-matt-pocock-skills/SKILL.md w/skills/engineering/setup-matt-pocock-skills/SKILL.md
+index 4cbdd0f..595007e 100644
+--- i/skills/engineering/setup-matt-pocock-skills/SKILL.md
++++ w/skills/engineering/setup-matt-pocock-skills/SKILL.md
 @@ -114,3 +114,13 @@ For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch us
  ### 5. Done
  
- Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later; re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
+ Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later — re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
 +
 +---
 +

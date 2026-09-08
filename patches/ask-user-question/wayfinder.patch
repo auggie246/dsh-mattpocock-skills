@@ -1,9 +1,9 @@
-diff --git a/skills/engineering/wayfinder/SKILL.md b/skills/engineering/wayfinder/SKILL.md
-index 812805b..bef692b 100644
---- a/skills/engineering/wayfinder/SKILL.md
-+++ b/skills/engineering/wayfinder/SKILL.md
-@@ -126,3 +126,13 @@ User invokes with a map (URL or number). A ticket is **optional**: without one,
- 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals that a ticket (this one or another) sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+diff --git i/skills/engineering/wayfinder/SKILL.md w/skills/engineering/wayfinder/SKILL.md
+index e4984ed..08a3524 100644
+--- i/skills/engineering/wayfinder/SKILL.md
++++ w/skills/engineering/wayfinder/SKILL.md
+@@ -126,3 +126,13 @@ User invokes with a map (URL or number). A ticket is **optional** — without on
+ 5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
  
  The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
 +
